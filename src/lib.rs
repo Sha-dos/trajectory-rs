@@ -31,7 +31,11 @@ pub struct Path {
 }
 
 impl Path {
-    fn get(&self, elapsed: Time) -> Pose {
+    pub fn from_trajectory(trajectory: &str) -> Result<Self, serde_json::Error> {
+        Ok(serde_json::from_str::<Trajectory>(trajectory)?.into())
+    }
+
+    pub fn get(&self, elapsed: Time) -> Pose {
         let elapsed = elapsed.get::<second>();
         let below = self.samples.upper_bound(std::ops::Bound::Included(&NotNan::new(elapsed).unwrap()));
 
@@ -59,12 +63,12 @@ impl From<Trajectory> for Path {
 
 #[derive(Clone, Debug)]
 pub struct Pose {
-    x: Length,
-    y: Length,
-    heading: Angle,
-    angular_velocity: AngularVelocity,
-    velocity_x: Velocity,
-    velocity_y: Velocity,
+    pub x: Length,
+    pub y: Length,
+    pub heading: Angle,
+    pub angular_velocity: AngularVelocity,
+    pub velocity_x: Velocity,
+    pub velocity_y: Velocity,
 }
 
 
