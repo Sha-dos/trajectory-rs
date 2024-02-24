@@ -1,6 +1,6 @@
 #![feature(btree_cursors)]
 
-use std::{collections::BTreeMap, process::Output, ops::{Mul, Add, Sub}};
+use std::{collections::BTreeMap, process::Output, ops::{Mul, Add, Sub, Deref}};
 
 use ordered_float::NotNan;
 use serde::{Serialize, Deserialize};
@@ -47,6 +47,9 @@ impl Path {
         } else {
             below.value().unwrap().to_owned()
         }
+    }
+    pub fn length(&self) -> Time {
+        Time::new::<second>(**self.samples.last_key_value().unwrap().0)
     }
 }
 
