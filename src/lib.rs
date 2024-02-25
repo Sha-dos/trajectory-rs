@@ -4,7 +4,7 @@ use std::{collections::BTreeMap, process::Output, ops::{Mul, Add, Sub, Deref}};
 
 use ordered_float::NotNan;
 use serde::{Serialize, Deserialize};
-use uom::si::{f64::{AngularVelocity, Length, Angle, Velocity, Time}, length::meter, angle::radian, velocity::meter_per_second, angular_velocity::radian_per_second, time::second};
+use uom::si::{f64::{AngularVelocity, Length, Angle, Velocity, Time}, length::meter, angle::{radian, degree}, velocity::meter_per_second, angular_velocity::radian_per_second, time::second};
 
 #[derive(Serialize, Deserialize)]
 pub struct Trajectory {
@@ -92,6 +92,11 @@ impl Pose {
             velocity_y: lerp(self.velocity_y, other.velocity_y, l),
         }
         
+    }
+
+    pub fn mirror(&mut self) {
+        self.x = Length::new::<meter>(8.)- self.x;
+        self.heading = Angle::new::<degree>(90.)- self.heading;
     }
     
 }
