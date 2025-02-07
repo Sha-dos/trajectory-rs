@@ -1,44 +1,57 @@
-#![feature(btree_cursors, diagnostic_namespace)]
-
 use std::{collections::BTreeMap, process::Output, ops::{Mul, Add, Sub, Deref}};
-
 use ordered_float::NotNan;
 use serde::{Serialize, Deserialize};
-use uom::si::{f64::{AngularVelocity, Length, Angle, Velocity, Time}, length::meter, angle::{radian, degree}, velocity::meter_per_second, angular_velocity::radian_per_second, time::second};
+use uom::si::{f64::{AngularVelocity, Length, Angle, Velocity, Time},
+              length::meter, angle::{radian, degree},
+              velocity::meter_per_second, angular_velocity::radian_per_second, time::second};
 
-// New root structure to match JSON
+// Root structure to match Choreo JSON
 #[derive(Serialize, Deserialize)]
-pub struct TrajectoryFile {
-    trajectory: Trajectory
+pub struct ChoreoTrajectory {
+    pub name: String,
+    pub trajectory: TrajectoryData,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Trajectory {
-    samples: Vec<Sample>,
+pub struct TrajectoryData {
+    pub samples: Vec<Sample>,
+    pub waypoints: Vec<f64>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Sample {
-    t: f64,  // Changed from timestamp
-    x: f64,
-    y: f64,
-    heading: f64,
-    #[serde(rename = "omega")]  // Changed from angular_velocity
-    angular_velocity: f64,
-    #[serde(rename = "vx")]  // Changed from velocity_x
-    velocity_x: f64,
-    #[serde(rename = "vy")]  // Changed from velocity_y
-    velocity_y: f64,
+    pub t: f64,
+    pub x: f64,
+    pub y: f64,
+    pub heading: f64,
+    #[serde(rename = "vx")]
+    pub velocity_x: f64,
+    #[serde(rename = "vy")]
+    pub velocity_y: f64,
+    #[serde(rename = "omega")]
+    pub angular_velocity: f64,
 }
 
 pub struct Path {
     samples: BTreeMap<NotNan<f64>, Pose>,
+    waypoints: Vec<f64>,
 }
 
 impl Path {
     pub fn from_trajectory(trajectory: &str) -> Result<Self, serde_json::Error> {
-        // Updated to handle the new root structure
-        Ok(serde_json::from_str::<TrajectoryFile>(trajectory)?.trajectory.into())
+        let choreo = serde_json::from_str::<ChoreoTrajectory>(trajectory)?;
+        Ok(Self::from_trajectory_data(choreo.trajectory))
+    }
+
+    fn from_trajectory_data(data: TrajectoryData) -> Self {
+        let mut samples = BTreeMap::new();
+        for sample in data.samples {
+            samples.insert(NotNan::new(sample.t).unwrap(), sample.into());
+        }
+        Self {
+            samples,
+            waypoints: data.waypoints
+        }
     }
 
     pub fn get(&self, elapsed: Time) -> Pose {
@@ -59,15 +72,10 @@ impl Path {
     pub fn length(&self) -> Time {
         Time::new::<second>(**self.samples.last_key_value().unwrap().0)
     }
-}
 
-impl From<Trajectory> for Path {
-    fn from(value: Trajectory) -> Self {
-        let mut map: BTreeMap<NotNan<f64>, Pose> = BTreeMap::new();
-        for sample in value.samples {
-            map.insert(NotNan::new(sample.t).unwrap(), sample.into());  // Changed from timestamp to t
-        }
-        Self { samples: map }
+    // Get waypoint timestamps
+    pub fn waypoints(&self) -> &[f64] {
+        &self.waypoints
     }
 }
 
@@ -81,11 +89,6 @@ pub struct Pose {
     pub velocity_y: Velocity,
 }
 
-fn lerp<A>(a: A, b: A, l: f64) -> A
-where A: Sub<A, Output=A> + Add<A, Output=A> + Mul<f64, Output = A> + Clone {
-    a.clone() + (b - a) * l
-}
-
 impl Pose {
     fn lerp(&self, other: &Pose, l: f64) -> Pose {
         Pose {
@@ -97,11 +100,11 @@ impl Pose {
             velocity_y: lerp(self.velocity_y, other.velocity_y, l),
         }
     }
+}
 
-    pub fn mirror(&mut self) {
-        self.x = Length::new::<meter>(8.) - self.x;
-        self.heading = Angle::new::<degree>(90.) - self.heading;
-    }
+fn lerp<A>(a: A, b: A, l: f64) -> A
+where A: Sub<A, Output=A> + Add<A, Output=A> + Mul<f64, Output = A> + Clone {
+    a.clone() + (b - a) * l
 }
 
 impl From<Sample> for Pose {
@@ -114,17 +117,5 @@ impl From<Sample> for Pose {
             velocity_x: Velocity::new::<meter_per_second>(value.velocity_x),
             velocity_y: Velocity::new::<meter_per_second>(value.velocity_y),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let trajectory_file = include_str!("../../RobotCode2025/auto/BlueTriangle.traj");
-        let path = Path::from_trajectory(trajectory_file).unwrap();
-        println!("sec 1.5 {:?}", path.get(Time::new::<second>(1.5)));
     }
 }
