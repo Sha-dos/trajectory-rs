@@ -7,11 +7,52 @@ use uom::si::{f64::{AngularVelocity, Length, Angle, Velocity, Time},
               length::meter, angle::{radian, degree},
               velocity::meter_per_second, angular_velocity::radian_per_second, time::second};
 
-// Root structure to match Choreo JSON
 #[derive(Serialize, Deserialize)]
 pub struct ChoreoTrajectory {
     pub name: String,
+    pub version: u32,
+    pub snapshot: Snapshot,
+    pub params: Params,
     pub trajectory: TrajectoryData,
+    pub events: Vec<Event>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Snapshot {
+    pub waypoints: Vec<SnapshotWaypoint>,
+    pub constraints: Vec<Constraint>,
+    #[serde(rename = "targetDt")]
+    pub target_dt: f64,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SnapshotWaypoint {
+    pub x: f64,
+    pub y: f64,
+    pub heading: f64,
+    pub intervals: u32,
+    pub split: bool,
+    #[serde(rename = "fixTranslation")]
+    pub fix_translation: bool,
+    #[serde(rename = "fixHeading")]
+    pub fix_heading: bool,
+    #[serde(rename = "overrideIntervals")]
+    pub override_intervals: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Constraint {
+    // TODO: implement
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Params {
+    // TODO: implement
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Event {
+    // TODO: implement
 }
 
 #[derive(Serialize, Deserialize)]
@@ -42,7 +83,20 @@ pub struct Path {
 impl Path {
     pub fn from_trajectory(trajectory: &str) -> Result<Self, serde_json::Error> {
         let choreo = serde_json::from_str::<ChoreoTrajectory>(trajectory)?;
-        Ok(Self::from_trajectory_data(choreo.trajectory))
+
+        let valid_waypoints = choreo.snapshot.waypoints
+            .iter()
+            .enumerate()
+            .filter(|(_, wp)| wp.split)
+            .map(|(i, _)| choreo.trajectory.waypoints[i])
+            .collect();
+
+        let trajectory_data = TrajectoryData {
+            samples: choreo.trajectory.samples,
+            waypoints: valid_waypoints,
+        };
+
+        Ok(Self::from_trajectory_data(trajectory_data))
     }
 
     fn from_trajectory_data(data: TrajectoryData) -> Self {
@@ -119,5 +173,14 @@ impl From<Sample> for Pose {
             velocity_x: Velocity::new::<meter_per_second>(value.velocity_x),
             velocity_y: Velocity::new::<meter_per_second>(value.velocity_y),
         }
+    }
+}
+
+#[test]
+fn parse() {
+    let data = include_str!("../../RobotCode2025/auto/Blue2.traj");
+    let path = Path::from_trajectory(data).unwrap();
+    for i in path.waypoints() {
+        println!("{}", i);
     }
 }
