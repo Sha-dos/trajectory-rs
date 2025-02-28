@@ -6,6 +6,7 @@ use serde::{Serialize, Deserialize};
 use uom::si::{f64::{AngularVelocity, Length, Angle, Velocity, Time},
               length::meter, angle::{radian, degree},
               velocity::meter_per_second, angular_velocity::radian_per_second, time::second};
+use uom::si::length::millimeter;
 
 #[derive(Serialize, Deserialize)]
 pub struct ChoreoTrajectory {
@@ -156,6 +157,19 @@ impl Pose {
             velocity_y: lerp(self.velocity_y, other.velocity_y, l),
         }
     }
+
+    /// X and Y are half of the field length and width
+    /// velocity might be wrong
+    fn mirror(&self, x: Length, y: Length) -> Pose {
+        Pose {
+            x: x - self.x + x,
+            y: y - self.y + y,
+            heading: self.heading + Angle::new::<radian>(std::f64::consts::PI),
+            angular_velocity: -self.angular_velocity,
+            velocity_x: self.velocity_x,
+            velocity_y: self.velocity_y,
+        }
+    }
 }
 
 fn lerp<A>(a: A, b: A, l: f64) -> A
@@ -183,4 +197,18 @@ fn parse() {
     for i in path.waypoints() {
         println!("{}", i);
     }
+}
+
+#[test]
+fn mirror_test() {
+    let path = Path::from_trajectory(include_str!("../../RobotCode2025/auto/Blue2.traj")).unwrap();
+    let setpoint = path.get(Time::new::<second>(0.0));
+
+    println!("{:?}", setpoint);
+
+    let setpoint = setpoint.mirror(Length::new::<meter>(17.55 / 2.), Length::new::<meter>(8.05 / 2.));
+
+    assert_eq!(setpoint.x.get::<meter>(), 9.53808);
+    assert_eq!(setpoint.y.get::<meter>(), 0.4438400000000007);
+    assert_eq!(setpoint.heading.get::<degree>(), 180.);
 }
