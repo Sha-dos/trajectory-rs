@@ -160,7 +160,7 @@ impl Pose {
 
     /// X and Y are half of the field length and width
     /// velocity might be wrong
-    fn mirror(&self, x: Length, y: Length) -> Pose {
+    pub fn mirror(&self, x: Length, y: Length) -> Pose {
         Pose {
             x: x - self.x + x,
             y: y - self.y + y,
