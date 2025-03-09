@@ -1,6 +1,7 @@
 #![feature(btree_cursors)]
 
 use std::{collections::BTreeMap, process::Output, ops::{Mul, Add, Sub, Deref}};
+use std::f64::consts::PI;
 use ordered_float::NotNan;
 use serde::{Serialize, Deserialize};
 use uom::si::{f64::{AngularVelocity, Length, Angle, Velocity, Time},
@@ -161,10 +162,11 @@ impl Pose {
     /// X and Y are half of the field length and width
     /// velocity might be wrong
     pub fn mirror(&self, x: Length, y: Length) -> Pose {
+        let target_heading = if self.heading.get::<radian>() < 0. { self.heading + Angle::new::<radian>(PI) } else { self.heading - Angle::new::<radian>(PI) };
         Pose {
             x: x - self.x + x,
             y: y - self.y + y,
-            heading: self.heading + Angle::new::<radian>(std::f64::consts::PI),
+            heading: target_heading,
             angular_velocity: -self.angular_velocity,
             velocity_x: self.velocity_x,
             velocity_y: self.velocity_y,
